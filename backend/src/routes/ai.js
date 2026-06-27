@@ -3,45 +3,47 @@ const OpenAI = require('openai');
 const pool = require('../db');
 const auth = require('../middleware/auth');
 
-// DeepSeek, OpenAI-compatible API kullanıyor
 const deepseek = new OpenAI({
   apiKey: process.env.DEEPSEEK_API_KEY,
   baseURL: 'https://api.deepseek.com',
 });
 
-async function ask(messages, system) {
+const SYSTEM = `Sen Türkiye'nin en iyi KPSS öğretmenisin. 
+Her zaman Türkçe cevap ver.
+KPSS sınavı formatına hakim, gerçek KPSS sorularının stilini biliyorsun.
+Açıklamaların net, öğretici ve ezber dostu olmalı.
+Sorular gerçek KPSS zorluğunda olmalı — ne çok kolay ne çok zor.`;
+
+async function ask(messages, maxTokens = 2000) {
   const res = await deepseek.chat.completions.create({
     model: 'deepseek-chat',
-    max_tokens: 1024,
-    messages: [
-      { role: 'system', content: system || 'Sen KPSS uzmanı bir öğretmenisin. Her zaman Türkçe cevap ver.' },
-      ...messages,
-    ],
+    max_tokens: maxTokens,
+    temperature: 0.7,
+    messages: [{ role: 'system', content: SYSTEM }, ...messages],
   });
   return res.choices[0].message.content;
 }
 
-// ── Chat ──
+// ── AI Chat ──
 router.post('/chat', auth, async (req, res) => {
   const { message } = req.body;
-  if (!message) return res.status(400).json({ error: 'Mesaj gerekli' });
+  if (!message?.trim()) return res.status(400).json({ error: 'Mesaj gerekli' });
 
   const { rows: history } = await pool.query(
-    'SELECT role, content FROM chat_messages WHERE user_id=$1 ORDER BY created_at DESC LIMIT 10',
+    'SELECT role, content FROM chat_messages WHERE user_id=$1 ORDER BY created_at DESC LIMIT 12',
     [req.user.id]
   );
 
   try {
-    const reply = await ask(
-      [...history.reverse(), { role: 'user', content: message }],
-      'Sen KPSS Master AI öğretmenisin. KPSS\'ye hazırlanan Türk öğrencilere yardım ediyorsun. Her zaman Türkçe, kısa ve öz cevap ver. KPSS müfredatına odaklan.'
-    );
+    const reply = await ask([
+      ...history.reverse().map(m => ({ role: m.role, content: m.content })),
+      { role: 'user', content: message }
+    ], 1500);
 
     await pool.query(
       'INSERT INTO chat_messages (user_id, role, content) VALUES ($1,$2,$3),($1,$4,$5)',
       [req.user.id, 'user', message, 'assistant', reply]
     );
-
     await pool.query('UPDATE users SET xp=xp+2 WHERE id=$1', [req.user.id]);
     res.json({ reply });
   } catch (e) {
@@ -49,55 +51,80 @@ router.post('/chat', auth, async (req, res) => {
   }
 });
 
-// ── Soru Üret ──
+// ── Soru Üret (PDF metni VEYA konu adı) ──
 router.post('/generate-questions', auth, async (req, res) => {
-  const { pdfId, count = 10, difficulty = 'medium' } = req.body;
+  const { pdfId, topic, text, count = 10, difficulty = 'medium' } = req.body;
 
-  const { rows } = await pool.query(
-    'SELECT extracted_text, title FROM pdfs WHERE id=$1 AND user_id=$2',
-    [pdfId, req.user.id]
-  );
-  if (!rows.length) return res.status(404).json({ error: 'PDF bulunamadı' });
+  let sourceText = '';
+  let sourceName = '';
 
-  const diffMap = { easy: 'kolay', medium: 'orta', hard: 'zor' };
+  if (pdfId) {
+    const { rows } = await pool.query(
+      'SELECT extracted_text, title FROM pdfs WHERE id=$1 AND user_id=$2',
+      [pdfId, req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'PDF bulunamadı' });
+    sourceText = rows[0].extracted_text || '';
+    sourceName = rows[0].title;
+  } else if (text?.trim()) {
+    sourceText = text.trim().slice(0, 8000);
+    sourceName = 'Yapıştırılan Metin';
+  } else if (topic?.trim()) {
+    sourceName = topic.trim();
+    // Konudan direkt soru üret, kaynak metin yok
+  } else {
+    return res.status(400).json({ error: 'PDF, metin veya konu gerekli' });
+  }
 
-  try {
-    const reply = await ask([{
-      role: 'user',
-      content: `Aşağıdaki KPSS ders notundan ${count} adet çoktan seçmeli soru üret.
-Zorluk: ${diffMap[difficulty] || 'orta'}
-Kaynak: ${rows[0].title}
+  const diffMap = { easy: 'kolay (temel bilgi)', medium: 'orta (kavrama ve uygulama)', hard: 'zor (analiz ve değerlendirme)' };
 
-${rows[0].extracted_text.slice(0, 6000)}
+  const contextPart = sourceText
+    ? `Aşağıdaki kaynak metni kullan:\n\n${sourceText.slice(0, 7000)}`
+    : `Konu: ${sourceName}\nKPSS müfredatındaki bu konudan gerçekçi sorular üret.`;
 
-SADECE JSON döndür, başka hiçbir şey yazma:
+  const prompt = `${contextPart}
+
+Görev: ${count} adet KPSS tarzı çoktan seçmeli soru üret.
+Zorluk: ${diffMap[difficulty] || diffMap.medium}
+Konu/Kaynak: ${sourceName}
+
+KRİTER:
+- Her soru gerçek KPSS sınavındaki gibi olsun
+- Şıklar birbirine yakın ve kafa karıştırıcı olsun (biri bariz doğru olmasın)
+- Açıklama öğretici ve net olsun
+- Sorular farklı alt konuları kapsasın
+- Türkçe dil bilgisi mükemmel olsun
+
+SADECE bu JSON formatında döndür, başka hiçbir şey yazma:
 {
   "questions": [
     {
-      "text": "Soru metni?",
-      "options": ["A) ...", "B) ...", "C) ...", "D) ...", "E) ..."],
-      "correct_answer": "A",
-      "explanation": "Açıklama"
+      "text": "Soru metni burada?",
+      "options": ["A) Seçenek bir", "B) Seçenek iki", "C) Seçenek üç", "D) Seçenek dört", "E) Seçenek beş"],
+      "correct_answer": "B",
+      "explanation": "Doğru cevap B çünkü... Diğer seçenekler yanlış çünkü..."
     }
   ]
-}`
-    }]);
+}`;
 
+  try {
+    const reply = await ask([{ role: 'user', content: prompt }], 4000);
     const match = reply.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('JSON bulunamadı');
     const parsed = JSON.parse(match[0]);
 
     const saved = [];
-    for (const q of parsed.questions) {
-      const { rows: qRows } = await pool.query(
+    for (const q of parsed.questions || []) {
+      const { rows } = await pool.query(
         `INSERT INTO questions (pdf_id, text, options, correct_answer, explanation, difficulty)
          VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-        [pdfId, q.text, JSON.stringify(q.options), q.correct_answer, q.explanation, difficulty]
+        [pdfId || null, q.text, JSON.stringify(q.options), q.correct_answer, q.explanation, difficulty]
       );
-      saved.push(qRows[0]);
+      saved.push(rows[0]);
     }
 
     await pool.query('UPDATE users SET xp=xp+20 WHERE id=$1', [req.user.id]);
-    res.json({ questions: saved, count: saved.length });
+    res.json({ questions: saved, count: saved.length, source: sourceName });
   } catch (e) {
     res.status(500).json({ error: 'Soru üretilemedi: ' + e.message });
   }
@@ -105,39 +132,55 @@ SADECE JSON döndür, başka hiçbir şey yazma:
 
 // ── Flashcard Üret ──
 router.post('/generate-flashcards', auth, async (req, res) => {
-  const { pdfId, count = 10 } = req.body;
+  const { pdfId, topic, text, count = 15 } = req.body;
 
-  const { rows } = await pool.query(
-    'SELECT extracted_text, title FROM pdfs WHERE id=$1 AND user_id=$2',
-    [pdfId, req.user.id]
-  );
-  if (!rows.length) return res.status(404).json({ error: 'PDF bulunamadı' });
+  let sourceText = '';
+  let sourceName = '';
 
-  try {
-    const reply = await ask([{
-      role: 'user',
-      content: `Aşağıdaki KPSS ders notundan ${count} adet flashcard üret.
+  if (pdfId) {
+    const { rows } = await pool.query(
+      'SELECT extracted_text, title FROM pdfs WHERE id=$1 AND user_id=$2',
+      [pdfId, req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'PDF bulunamadı' });
+    sourceText = rows[0].extracted_text || '';
+    sourceName = rows[0].title;
+  } else if (text?.trim()) {
+    sourceText = text.trim().slice(0, 6000);
+    sourceName = 'Yapıştırılan Metin';
+  } else if (topic?.trim()) {
+    sourceName = topic.trim();
+  } else {
+    return res.status(400).json({ error: 'PDF, metin veya konu gerekli' });
+  }
 
-${rows[0].extracted_text.slice(0, 4000)}
+  const contextPart = sourceText
+    ? `Kaynak:\n${sourceText.slice(0, 5000)}`
+    : `Konu: ${sourceName} (KPSS müfredatı)`;
+
+  const prompt = `${contextPart}
+
+${count} adet KPSS flashcard üret. Ön yüz kısa soru/kavram, arka yüz açık ve öğretici cevap olsun.
 
 SADECE JSON döndür:
 {
   "flashcards": [
-    { "front": "Soru veya kavram", "back": "Cevap veya açıklama" }
+    { "front": "Kısa soru veya kavram", "back": "Net ve öğretici cevap" }
   ]
-}`
-    }]);
+}`;
 
+  try {
+    const reply = await ask([{ role: 'user', content: prompt }], 3000);
     const match = reply.match(/\{[\s\S]*\}/);
     const parsed = JSON.parse(match[0]);
 
     const saved = [];
-    for (const fc of parsed.flashcards) {
-      const { rows: fcRows } = await pool.query(
+    for (const fc of parsed.flashcards || []) {
+      const { rows } = await pool.query(
         'INSERT INTO flashcards (user_id, pdf_id, front, back) VALUES ($1,$2,$3,$4) RETURNING *',
-        [req.user.id, pdfId, fc.front, fc.back]
+        [req.user.id, pdfId || null, fc.front, fc.back]
       );
-      saved.push(fcRows[0]);
+      saved.push(rows[0]);
     }
 
     await pool.query('UPDATE users SET xp=xp+10 WHERE id=$1', [req.user.id]);
@@ -158,8 +201,8 @@ router.post('/summarize/:pdfId', auth, async (req, res) => {
   try {
     const summary = await ask([{
       role: 'user',
-      content: `Bu KPSS ders notunu 3-4 cümleyle Türkçe özetle:\n\n${rows[0].extracted_text.slice(0, 3000)}`
-    }]);
+      content: `Bu KPSS ders notunun ana konularını ve önemli bilgilerini 4-5 cümleyle özetle. Türkçe yaz:\n\n${rows[0].extracted_text?.slice(0, 4000)}`
+    }], 600);
 
     await pool.query('UPDATE pdfs SET ai_summary=$1 WHERE id=$2', [summary, req.params.pdfId]);
     res.json({ summary });
@@ -171,7 +214,7 @@ router.post('/summarize/:pdfId', auth, async (req, res) => {
 // ── Chat Geçmişi ──
 router.get('/chat', auth, async (req, res) => {
   const { rows } = await pool.query(
-    'SELECT role, content, created_at FROM chat_messages WHERE user_id=$1 ORDER BY created_at ASC LIMIT 50',
+    'SELECT role, content, created_at FROM chat_messages WHERE user_id=$1 ORDER BY created_at ASC LIMIT 60',
     [req.user.id]
   );
   res.json(rows);

@@ -6,7 +6,7 @@ import Sidebar from '@/components/Sidebar';
 import { Toaster } from 'react-hot-toast';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, fetchMe } = useAuth();
+  const { fetchMe } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -16,12 +16,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[#0F172A]">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto bg-[#0F172A]">
+      {/* Mobile: padding top for fixed topbar */}
+      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
         {children}
       </main>
-      <Toaster position="top-right" toastOptions={{ style: { background: '#1E293B', color: '#F8FAFC', border: '1px solid rgba(255,255,255,0.08)', fontSize: '13px' } }} />
+      <Toaster position="top-right" toastOptions={{
+        style: { background: '#1E293B', color: '#F8FAFC', border: '1px solid rgba(255,255,255,0.08)', fontSize: '13px' },
+        success: { iconTheme: { primary: '#22C55E', secondary: '#fff' } },
+        error: { iconTheme: { primary: '#EF4444', secondary: '#fff' } },
+      }} />
     </div>
   );
 }
