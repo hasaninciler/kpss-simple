@@ -9,9 +9,18 @@ api.interceptors.request.use(cfg => {
 });
 
 api.interceptors.response.use(r => r, err => {
+  // Sadece gerçekten token geçersizse login'e at.
+  // Rastgele bir endpoint hatası (tablo yok, sunucu hatası) çıkışa sebep olmasın.
   if (err.response?.status === 401 && typeof window !== 'undefined') {
-    localStorage.removeItem('token');
-    window.location.href = '/login';
+    const url = err.config?.url || '';
+    // Login/register denemesi değilse ve auth kontrolüyse çıkış yap
+    const isAuthCheck = url.includes('/auth/me');
+    if (isAuthCheck) {
+      localStorage.removeItem('token');
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
+    }
   }
   return Promise.reject(err);
 });

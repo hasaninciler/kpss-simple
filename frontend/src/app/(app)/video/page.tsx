@@ -1,15 +1,15 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
-import { Send, ChevronLeft, ChevronRight, CheckCircle, List, Bot, Zap, CreditCard, Sparkles, X } from 'lucide-react';
+import { Send, ChevronLeft, ChevronRight, CheckCircle, List, Bot, Zap, CreditCard, Sparkles, X, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const PLAYLISTS = [
-  { id: 'PLPlLdubQ1fMsIk3Kujy9yqJOyFLHsfQlp', title: 'Coğrafya',    icon: '🗺️', color: '#3B82F6' },
-  { id: 'PL5w_hbb3voMm6DLBYyv0VZs9sKidbEpcg', title: 'Tarih',       icon: '🏛️', color: '#F59E0B' },
-  { id: 'PLPhEmM6X--Wf4b-wPQNtUqCIgomDotaIU', title: 'Matematik',   icon: '📐', color: '#22C55E' },
-  { id: 'PLPlLdubQ1fMs-O0_vwxL7bH-S7Bi4jKsu', title: 'Türkçe',      icon: '📝', color: '#A855F7' },
-  { id: 'PL5w_hbb3voMmmxQhHqC_bmvVtzlDpXfA1', title: 'Vatandaşlık', icon: '⚖️', color: '#EF4444' },
+  { id: 'PLPlLdubQ1fMs-O0_vwxL7bH-S7Bi4jKsu', title: 'Coğrafya',    icon: '🗺️', color: '#3B82F6', pdf: '1E7Mp-izuN5weNycp2WNwVN0G8S6yBjbV' },
+  { id: 'PL5w_hbb3voMmmxQhHqC_bmvVtzlDpXfA1', title: 'Tarih',       icon: '🏛️', color: '#F59E0B', pdf: '1-HbIhr0w_JrmgWxIqDCjOXofC1C0jT8a' },
+  { id: 'PLPlLdubQ1fMsIk3Kujy9yqJOyFLHsfQlp', title: 'Matematik',   icon: '📐', color: '#22C55E', pdf: '1AnU0-w55Ux1xomVRp_mivR9_43F2OTd3' },
+  { id: 'PL5w_hbb3voMm6DLBYyv0VZs9sKidbEpcg', title: 'Türkçe',      icon: '📝', color: '#A855F7', pdf: '13exBbeVK3YTjblR3kzWk55_weyG4kfCC' },
+  { id: 'PLPhEmM6X--Wf4b-wPQNtUqCIgomDotaIU', title: 'Vatandaşlık', icon: '⚖️', color: '#EF4444', pdf: '1BPgH1Y27ZB-t0Sfn8E_QABo-3yNkOcOv' },
 ];
 const LETTERS = ['A','B','C','D','E'];
 
@@ -215,6 +215,7 @@ export default function VideoPage() {
   const [error,setError]=useState('');
   const [watched,setWatched]=useState<Set<string>>(new Set());
   const [showAi,setShowAi]=useState(false);
+  const [showPdf,setShowPdf]=useState(false);
   const [mobilePanel,setMobilePanel]=useState<'list'|'video'>('list');
 
   useEffect(()=>{ const w=localStorage.getItem('kpss_watched'); if(w)setWatched(new Set(JSON.parse(w))); },[]);
@@ -242,7 +243,7 @@ export default function VideoPage() {
       <div className="flex-shrink-0 border-b border-white/[0.08] bg-[#1E293B]">
         <div className="flex gap-2 p-2 overflow-x-auto">
           {PLAYLISTS.map(pl=>(
-            <button key={pl.id} onClick={()=>pl.id!==activePl.id&&setActivePl(pl)}
+            <button key={pl.id} onClick={()=>{ if(pl.id!==activePl.id){ setActivePl(pl); setShowPdf(false); setShowAi(false); } }}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl whitespace-nowrap transition-all flex-shrink-0 ${activePl.id===pl.id?'text-white':'text-slate-400 hover:text-white'}`}
               style={activePl.id===pl.id?{background:pl.color+'20',border:`1px solid ${pl.color}40`}:{background:'#0F172A'}}>
               <span className="text-base">{pl.icon}</span>
@@ -302,6 +303,11 @@ export default function VideoPage() {
                   <button onClick={()=>setShowAi(true)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white text-sm font-medium hover:opacity-90 transition-opacity">
                     <Sparkles size={15}/> AI ile Çalış
                   </button>
+                  {activePl.pdf && (
+                    <button onClick={()=>setShowPdf(true)} className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-500/15 text-red-400 text-sm font-medium hover:bg-red-500/25 transition-colors">
+                      <FileText size={15}/> Ders Notu
+                    </button>
+                  )}
                 </div>
 
                 {/* Önceki/Sonraki */}
@@ -326,6 +332,33 @@ export default function VideoPage() {
       {showAi && activeVideo && (
         <div className="md:hidden fixed inset-0 z-50 bg-[#0F172A]">
           <AiPanel videoTitle={activeVideo.title} playlistTitle={activePl.title} onClose={()=>setShowAi(false)}/>
+        </div>
+      )}
+
+      {/* PDF Görüntüleyici (tam ekran) */}
+      {showPdf && activePl.pdf && (
+        <div className="fixed inset-0 z-50 bg-[#0F172A] flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <FileText size={16} className="text-red-400" />
+              <span className="text-sm font-semibold">{activePl.title} — Ders Notu</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <a href={`https://drive.google.com/file/d/${activePl.pdf}/view`} target="_blank" rel="noreferrer"
+                className="text-xs text-primary-light hover:text-white px-3 py-1.5 rounded-lg bg-primary/10 transition-colors">
+                Yeni Sekmede Aç ↗
+              </a>
+              <button onClick={()=>setShowPdf(false)} className="text-slate-400 hover:text-white p-1.5"><X size={18}/></button>
+            </div>
+          </div>
+          <div className="flex-1 bg-[#1E1E1E]">
+            <iframe
+              src={`https://drive.google.com/file/d/${activePl.pdf}/preview`}
+              className="w-full h-full"
+              allow="autoplay"
+              title="Ders Notu PDF"
+            />
+          </div>
         </div>
       )}
     </div>

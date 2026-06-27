@@ -92,7 +92,20 @@ SADECE JSON döndür:
     });
 
     const text = resp.choices[0].message.content;
-    const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
+
+    // Sağlam JSON parse
+    let parsed;
+    try {
+      let jsonText = text.trim().replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+      const start = jsonText.indexOf('{');
+      const end = jsonText.lastIndexOf('}');
+      jsonText = jsonText.slice(start, end + 1).replace(/,(\s*[}\]])/g, '$1');
+      parsed = JSON.parse(jsonText);
+    } catch {
+      throw new Error('Plan oluşturulamadı, tekrar dene');
+    }
+
+    if (!parsed.plan || !parsed.plan.length) throw new Error('Plan boş geldi, tekrar dene');
 
     // Önce o günün eski AI planını temizle (opsiyonel - kullanıcı isterse)
     const saved = [];
