@@ -17,7 +17,7 @@ Sorular gerçek KPSS zorluğunda olmalı — ne çok kolay ne çok zor.`;
 async function ask(messages, maxTokens = 2000) {
   const res = await deepseek.chat.completions.create({
     model: 'deepseek-chat',
-    max_tokens: maxTokens,
+    max_tokens: Math.min(maxTokens, 8000),
     temperature: 0.7,
     messages: [{ role: 'system', content: SYSTEM }, ...messages],
   });
@@ -108,7 +108,7 @@ SADECE bu JSON formatında döndür, başka hiçbir şey yazma:
 }`;
 
   try {
-    const reply = await ask([{ role: 'user', content: prompt }], 4000);
+    const reply = await ask([{ role: 'user', content: prompt }], 8000);
 
     // JSON'u sağlam şekilde çıkar
     let parsed;
