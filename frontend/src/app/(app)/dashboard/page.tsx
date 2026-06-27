@@ -67,12 +67,14 @@ export default function Dashboard() {
   const [weekly, setWeekly] = useState<any[]>([]);
   const [badges, setBadges] = useState<any>(null);
   const [daily, setDaily] = useState<any>(null);
+  const [todayPlan, setTodayPlan] = useState<any[]>([]);
 
   useEffect(() => {
     api.get('/stats').then(r => setStats(r.data));
     api.get('/social/weekly-study').then(r => setWeekly(r.data)).catch(()=>{});
     api.get('/social/badges').then(r => setBadges(r.data)).catch(()=>{});
     api.get('/study/daily').then(r => setDaily(r.data)).catch(()=>{});
+    api.get('/planner').then(r => setTodayPlan(r.data)).catch(()=>{});
   }, []);
 
   const daysLeft = Math.ceil((new Date('2026-07-06').getTime() - Date.now()) / 86400000);
@@ -211,6 +213,32 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-4">
+          {/* Bugünün Planı */}
+          <div className="card">
+            <div className="flex justify-between items-center mb-3">
+              <div className="text-sm font-semibold">📅 Bugünün Planı</div>
+              <Link href="/plan" className="text-xs text-primary-light hover:text-white transition-colors">Tümü →</Link>
+            </div>
+            {todayPlan.length > 0 ? (
+              <div className="space-y-1.5">
+                {todayPlan.slice(0, 4).map((t: any) => (
+                  <div key={t.id} className="flex items-center gap-2 text-xs">
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${t.done ? 'border-success bg-success' : 'border-slate-600'}`}>
+                      {t.done && <span className="text-white text-[8px]">✓</span>}
+                    </div>
+                    <span className={`flex-1 truncate ${t.done ? 'line-through text-slate-600' : 'text-slate-300'}`}>{t.title}</span>
+                    {t.time_start && <span className="text-[10px] text-slate-600">{t.time_start}</span>}
+                  </div>
+                ))}
+                {todayPlan.length > 4 && <div className="text-[11px] text-slate-600 pl-6">+{todayPlan.length - 4} görev daha</div>}
+              </div>
+            ) : (
+              <Link href="/plan" className="block text-center py-3 text-xs text-slate-500 hover:text-primary-light transition-colors">
+                + Plan oluştur
+              </Link>
+            )}
+          </div>
+
           <Pomodoro />
 
           {/* Seviye */}

@@ -15,6 +15,7 @@ app.use('/api/ai',      require('./routes/ai'));
 app.use('/api/youtube', require('./routes/youtube'));
 app.use('/api/social',  require('./routes/social'));
 app.use('/api/study',   require('./routes/study'));
+app.use('/api/planner', require('./routes/planner'));
 app.use('/api',         require('./routes/quiz'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));

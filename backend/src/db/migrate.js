@@ -111,6 +111,23 @@ async function migrate() {
       UNIQUE(user_id, task_date)
     );
 
+    -- GÜNLÜK PLAN / YAPILACAKLAR
+    CREATE TABLE IF NOT EXISTS planner (
+      id SERIAL PRIMARY KEY,
+      user_id INT REFERENCES users(id) ON DELETE CASCADE,
+      plan_date DATE DEFAULT CURRENT_DATE,
+      title TEXT NOT NULL,
+      subject TEXT,
+      time_start TEXT,
+      time_end TEXT,
+      duration_min INT DEFAULT 30,
+      type TEXT DEFAULT 'study',
+      priority TEXT DEFAULT 'normal',
+      done BOOLEAN DEFAULT false,
+      sort_order INT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
     ALTER TABLE users ADD COLUMN IF NOT EXISTS max_streak INT DEFAULT 0;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS target_date DATE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_goal INT DEFAULT 30;

@@ -5,10 +5,10 @@ async function seed() {
   const password = await bcrypt.hash('Demo2026!', 10);
 
   await pool.query(`
-    INSERT INTO users (name, email, password, role)
+    INSERT INTO users (name, email, password, role, xp, streak)
     VALUES
-      ('Admin', 'admin@kpss.com', $1, 'admin'),
-      ('Demo Öğrenci', 'demo@kpss.com', $1, 'student')
+      ('Admin', 'admin@kpss.com', $1, 'admin', 0, 0),
+      ('Demo Öğrenci', 'demo@kpss.com', $1, 'student', 250, 3)
     ON CONFLICT (email) DO NOTHING;
   `, [password]);
 

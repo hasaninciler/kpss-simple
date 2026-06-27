@@ -2,11 +2,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/store/auth';
-import { LayoutDashboard, FileText, Bot, ClipboardList, CreditCard, Video, Trophy, BookOpen, BookX, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, FileText, Bot, ClipboardList, CreditCard, Video, Trophy, BookOpen, BookX, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 const nav = [
   { href: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/plan',       icon: CalendarDays,     label: 'Günlük Plan' },
   { href: '/video',      icon: Video,            label: 'Video Merkezi' },
   { href: '/pdf',        icon: FileText,         label: 'Soru Üret' },
   { href: '/ai-tutor',   icon: Bot,              label: 'AI Öğretmen' },
