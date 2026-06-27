@@ -10,7 +10,9 @@ async function migrate() {
       role TEXT DEFAULT 'student',
       xp INT DEFAULT 0,
       streak INT DEFAULT 0,
+      max_streak INT DEFAULT 0,
       last_studied DATE,
+      target_date DATE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
@@ -21,7 +23,7 @@ async function migrate() {
       filename TEXT NOT NULL,
       extracted_text TEXT,
       ai_summary TEXT,
-      status TEXT DEFAULT 'processing',
+      status TEXT DEFAULT 'ready',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
@@ -33,12 +35,14 @@ async function migrate() {
       correct_answer TEXT NOT NULL,
       explanation TEXT,
       difficulty TEXT DEFAULT 'medium',
+      subject TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS quiz_attempts (
       id SERIAL PRIMARY KEY,
       user_id INT REFERENCES users(id) ON DELETE CASCADE,
+      subject TEXT,
       correct INT DEFAULT 0,
       wrong INT DEFAULT 0,
       empty INT DEFAULT 0,
@@ -67,14 +71,26 @@ async function migrate() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS study_sessions (
+    CREATE TABLE IF NOT EXISTS achievements (
       id SERIAL PRIMARY KEY,
       user_id INT REFERENCES users(id) ON DELETE CASCADE,
-      type TEXT,
-      duration_minutes INT DEFAULT 0,
-      xp_earned INT DEFAULT 0,
+      type TEXT NOT NULL,
+      earned_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, type)
+    );
+
+    CREATE TABLE IF NOT EXISTS study_log (
+      id SERIAL PRIMARY KEY,
+      user_id INT REFERENCES users(id) ON DELETE CASCADE,
+      minutes INT DEFAULT 0,
+      log_date DATE DEFAULT CURRENT_DATE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS max_streak INT DEFAULT 0;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS target_date DATE;
+    ALTER TABLE quiz_attempts ADD COLUMN IF NOT EXISTS subject TEXT;
+    ALTER TABLE questions ADD COLUMN IF NOT EXISTS subject TEXT;
   `);
 
   console.log('✅ Tablolar oluşturuldu');

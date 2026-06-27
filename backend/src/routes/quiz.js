@@ -47,6 +47,18 @@ router.post('/quiz/submit', auth, async (req, res) => {
 
   await pool.query('UPDATE users SET xp=xp+$1 WHERE id=$2', [xpEarned, req.user.id]);
 
+  // Çalışma logu + streak güncelle
+  await pool.query(`INSERT INTO study_log (user_id, minutes) VALUES ($1, 10)`, [req.user.id]);
+  const { rows: [u] } = await pool.query('SELECT streak, max_streak, last_studied FROM users WHERE id=$1', [req.user.id]);
+  const today = new Date().toISOString().split('T')[0];
+  const last = u.last_studied ? new Date(u.last_studied).toISOString().split('T')[0] : null;
+  if (last !== today) {
+    const yest = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const ns = (last === yest) ? (u.streak || 0) + 1 : 1;
+    await pool.query('UPDATE users SET streak=$1, max_streak=$2, last_studied=CURRENT_DATE WHERE id=$3',
+      [ns, Math.max(u.max_streak || 0, ns), req.user.id]);
+  }
+
   res.json({ correct, wrong, empty, netScore, xpEarned, total: answers.length });
 });
 

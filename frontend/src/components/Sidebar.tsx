@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/store/auth';
-import { LayoutDashboard, FileText, Bot, ClipboardList, CreditCard, Video, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FileText, Bot, ClipboardList, CreditCard, Video, Trophy, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 const nav = [
@@ -12,6 +12,7 @@ const nav = [
   { href: '/ai-tutor',   icon: Bot,              label: 'AI Öğretmen' },
   { href: '/quiz',       icon: ClipboardList,    label: 'Quiz' },
   { href: '/flashcard',  icon: CreditCard,       label: 'Flashcard' },
+  { href: '/liderlik',   icon: Trophy,           label: 'Liderlik' },
 ];
 
 function NavContent({ onClose }: { onClose?: () => void }) {
