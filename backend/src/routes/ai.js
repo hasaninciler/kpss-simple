@@ -109,24 +109,54 @@ SADECE bu JSON formatında döndür, başka hiçbir şey yazma:
 
   try {
     const reply = await ask([{ role: 'user', content: prompt }], 4000);
-    const match = reply.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('JSON bulunamadı');
-    const parsed = JSON.parse(match[0]);
+
+    // JSON'u sağlam şekilde çıkar
+    let parsed;
+    try {
+      let jsonText = reply.trim();
+      // Markdown kod bloğu temizle
+      jsonText = jsonText.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+      // İlk { ile son } arasını al
+      const start = jsonText.indexOf('{');
+      const end = jsonText.lastIndexOf('}');
+      if (start === -1 || end === -1) throw new Error('JSON bulunamadı');
+      jsonText = jsonText.slice(start, end + 1);
+      // Yaygın hataları düzelt: trailing virgül
+      jsonText = jsonText.replace(/,(\s*[}\]])/g, '$1');
+      parsed = JSON.parse(jsonText);
+    } catch (parseErr) {
+      // İkinci deneme: questions array'ini tek tek çıkar
+      const objects = reply.match(/\{[^{}]*"text"[^{}]*"correct_answer"[^{}]*\}/g);
+      if (objects && objects.length) {
+        parsed = { questions: objects.map(o => {
+          try { return JSON.parse(o.replace(/,(\s*})/g, '$1')); } catch { return null; }
+        }).filter(Boolean) };
+      } else {
+        throw new Error('AI geçerli soru üretemedi, tekrar dene');
+      }
+    }
+
+    if (!parsed.questions || !parsed.questions.length) {
+      throw new Error('Soru üretilemedi, tekrar dene');
+    }
 
     const saved = [];
-    for (const q of parsed.questions || []) {
+    for (const q of parsed.questions) {
+      if (!q.text || !q.options || !q.correct_answer) continue;
       const { rows } = await pool.query(
         `INSERT INTO questions (pdf_id, text, options, correct_answer, explanation, difficulty)
          VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-        [pdfId || null, q.text, JSON.stringify(q.options), q.correct_answer, q.explanation, difficulty]
+        [pdfId || null, q.text, JSON.stringify(q.options), q.correct_answer, q.explanation || '', difficulty]
       );
       saved.push(rows[0]);
     }
 
+    if (!saved.length) throw new Error('Geçerli soru oluşturulamadı, tekrar dene');
+
     await pool.query('UPDATE users SET xp=xp+20 WHERE id=$1', [req.user.id]);
     res.json({ questions: saved, count: saved.length, source: sourceName });
   } catch (e) {
-    res.status(500).json({ error: 'Soru üretilemedi: ' + e.message });
+    res.status(500).json({ error: e.message });
   }
 });
 
