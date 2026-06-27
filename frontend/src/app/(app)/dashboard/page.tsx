@@ -66,11 +66,13 @@ export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
   const [weekly, setWeekly] = useState<any[]>([]);
   const [badges, setBadges] = useState<any>(null);
+  const [daily, setDaily] = useState<any>(null);
 
   useEffect(() => {
     api.get('/stats').then(r => setStats(r.data));
     api.get('/social/weekly-study').then(r => setWeekly(r.data)).catch(()=>{});
     api.get('/social/badges').then(r => setBadges(r.data)).catch(()=>{});
+    api.get('/study/daily').then(r => setDaily(r.data)).catch(()=>{});
   }, []);
 
   const daysLeft = Math.ceil((new Date('2026-07-06').getTime() - Date.now()) / 86400000);
@@ -103,6 +105,39 @@ export default function Dashboard() {
           <div className="h-full bg-gradient-to-r from-primary to-secondary rounded-full" style={{width:`${Math.min(100,((365-daysLeft)/365)*100)}%`}}/>
         </div>
       </div>
+
+      {/* Günlük Görev */}
+      {daily && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm font-semibold">🎯 Bugünkü Hedef</div>
+            <span className="text-xs text-slate-500">{daily.questionsSolved}/{daily.goal} soru</span>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Soru Çöz', current: daily.questionsSolved, goal: daily.goal, icon: '✍️', color: '#4F46E5', href: '/quiz' },
+              { label: 'Video İzle', current: daily.videosWatched, goal: 3, icon: '🎬', color: '#22C55E', href: '/video' },
+              { label: 'Flashcard', current: daily.flashcardsDone, goal: 10, icon: '🃏', color: '#F59E0B', href: '/flashcard' },
+            ].map(t => {
+              const pct = Math.min(100, (t.current / t.goal) * 100);
+              const done = t.current >= t.goal;
+              return (
+                <Link key={t.label} href={t.href} className="bg-[#0F172A] rounded-xl p-3 hover:bg-[#253347] transition-all">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-lg">{t.icon}</span>
+                    {done && <span className="text-success text-xs">✓</span>}
+                  </div>
+                  <div className="text-[11px] text-slate-400 mb-1">{t.label}</div>
+                  <div className="text-sm font-bold mb-1.5" style={{ color: done ? '#22C55E' : t.color }}>{t.current}/{t.goal}</div>
+                  <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: done ? '#22C55E' : t.color }} />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

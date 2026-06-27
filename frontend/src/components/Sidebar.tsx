@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/store/auth';
-import { LayoutDashboard, FileText, Bot, ClipboardList, CreditCard, Video, Trophy, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FileText, Bot, ClipboardList, CreditCard, Video, Trophy, BookOpen, BookX, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 const nav = [
@@ -11,6 +11,8 @@ const nav = [
   { href: '/pdf',        icon: FileText,         label: 'Soru Üret' },
   { href: '/ai-tutor',   icon: Bot,              label: 'AI Öğretmen' },
   { href: '/quiz',       icon: ClipboardList,    label: 'Quiz' },
+  { href: '/konular',    icon: BookOpen,         label: 'Konu Takibi' },
+  { href: '/yanlislarim',icon: BookX,            label: 'Yanlışlarım' },
   { href: '/flashcard',  icon: CreditCard,       label: 'Flashcard' },
   { href: '/liderlik',   icon: Trophy,           label: 'Liderlik' },
 ];

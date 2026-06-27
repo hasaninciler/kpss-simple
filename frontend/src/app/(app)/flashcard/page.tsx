@@ -25,6 +25,7 @@ export default function FlashcardPage() {
   const review = async (quality: number) => {
     const card = cards[idx];
     await api.post(`/flashcards/${card.id}/review`, { quality });
+    api.post('/study/daily/increment', { type: 'flashcards', amount: 1 }).catch(() => {});
     setFlipped(false);
     if (idx + 1 >= cards.length) { setDone(true); toast.success('🎉 Tüm kartlar tamam!'); }
     else setIdx(p => p + 1);
