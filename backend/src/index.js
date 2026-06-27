@@ -9,10 +9,11 @@ app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/pdfs', require('./routes/pdfs'));
-app.use('/api/ai',   require('./routes/ai'));
-app.use('/api',      require('./routes/quiz'));
+app.use('/api/auth',    require('./routes/auth'));
+app.use('/api/pdfs',    require('./routes/pdfs'));
+app.use('/api/ai',      require('./routes/ai'));
+app.use('/api/youtube', require('./routes/youtube'));
+app.use('/api',         require('./routes/quiz'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
