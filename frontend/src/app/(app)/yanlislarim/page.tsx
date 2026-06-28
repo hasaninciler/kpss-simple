@@ -33,36 +33,59 @@ export default function YanlislarimPage() {
   const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error('Fotoğraf 5MB\'dan küçük olmalı'); return; }
 
     setPhotoLoading(true);
-    const t = toast.loading('AI fotoğraftaki soruyu okuyor...');
+    const t = toast.loading('Fotoğraf hazırlanıyor...');
     try {
-      // Base64'e çevir
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]); // data:image/...;base64, kısmını at
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      // Fotoğrafı tarayıcıda küçült (büyük telefon fotoğrafları için)
+      const base64 = await compressImage(file);
 
+      toast.loading('AI fotoğraftaki soruyu okuyor...', { id: t });
       const { data } = await api.post('/study/wrong/from-photo', {
         imageBase64: base64,
-        mimeType: file.type,
+        mimeType: 'image/jpeg',
       });
       toast.success('Soru eklendi! Kendin dene, hazır olunca AI\'ya sor.', { id: t });
       setShowAdd(false);
       load();
-      // Otomatik AI çözmüyoruz — kullanıcı kendi denesin, hazır olunca butona bassın
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Fotoğraf okunamadı', { id: t });
     } finally {
       setPhotoLoading(false);
       e.target.value = '';
     }
+  };
+
+  // Fotoğrafı küçültüp base64 döndür
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new window.Image();
+        img.onload = () => {
+          // En fazla 1600px genişlik/yükseklik
+          const maxDim = 1600;
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) { height = (height / width) * maxDim; width = maxDim; }
+            else { width = (width / height) * maxDim; height = maxDim; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('canvas yok')); return; }
+          ctx.drawImage(img, 0, 0, width, height);
+          // JPEG %80 kalite — okunabilir ama küçük
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          resolve(dataUrl.split(',')[1]);
+        };
+        img.onerror = reject;
+        img.src = ev.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   };
 
   const addManual = async () => {
