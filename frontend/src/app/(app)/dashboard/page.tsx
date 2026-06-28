@@ -1,65 +1,8 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { useAuth } from '@/store/auth';
 import Link from 'next/link';
-
-function Pomodoro() {
-  const MODES = { work: 25*60, short: 5*60, long: 15*60 };
-  const [mode, setMode] = useState<'work'|'short'|'long'>('work');
-  const [time, setTime] = useState(MODES.work);
-  const [running, setRunning] = useState(false);
-  const [sessions, setSessions] = useState(0);
-  const ref = useRef<any>(null);
-
-  useEffect(() => {
-    if (running) {
-      ref.current = setInterval(() => {
-        setTime(t => {
-          if (t <= 1) { clearInterval(ref.current); setRunning(false); if (mode==='work') { setSessions(s=>s+1); api.post('/social/study-log',{minutes:25}).catch(()=>{}); } return 0; }
-          return t - 1;
-        });
-      }, 1000);
-    } else clearInterval(ref.current);
-    return () => clearInterval(ref.current);
-  }, [running, mode]);
-
-  const mm = String(Math.floor(time/60)).padStart(2,'0');
-  const ss = String(time%60).padStart(2,'0');
-  const pct = ((MODES[mode]-time)/MODES[mode])*100;
-  const colors = { work:'#4F46E5', short:'#22C55E', long:'#F59E0B' };
-  const labels = { work:'Çalışma', short:'Kısa Mola', long:'Uzun Mola' };
-
-  return (
-    <div className="card">
-      <div className="flex justify-between items-center mb-3">
-        <div className="text-sm font-semibold">🍅 Pomodoro</div>
-        <div className="text-xs text-slate-500">{sessions} seans</div>
-      </div>
-      <div className="flex gap-1 mb-4 bg-[#0F172A] p-1 rounded-lg">
-        {(Object.keys(MODES) as Array<'work'|'short'|'long'>).map(m=>(
-          <button key={m} onClick={()=>{setMode(m);setTime(MODES[m]);setRunning(false);}} className={`flex-1 py-1 rounded-md text-[11px] font-medium transition-all ${mode===m?'bg-[#253347] text-white':'text-slate-500'}`}>{labels[m]}</button>
-        ))}
-      </div>
-      <div className="flex justify-center mb-4">
-        <div className="relative w-28 h-28">
-          <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="44" fill="none" stroke="#1E293B" strokeWidth="8"/>
-            <circle cx="50" cy="50" r="44" fill="none" stroke={colors[mode]} strokeWidth="8" strokeDasharray={`${2*Math.PI*44}`} strokeDashoffset={`${2*Math.PI*44*(1-pct/100)}`} strokeLinecap="round" style={{transition:'stroke-dashoffset 1s linear'}}/>
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="text-2xl font-black font-mono">{mm}:{ss}</div>
-            <div className="text-[9px] text-slate-500">{labels[mode]}</div>
-          </div>
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <button onClick={()=>setRunning(r=>!r)} className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${running?'bg-warning/20 text-warning':'bg-primary hover:bg-primary-light text-white'}`}>{running?'⏸ Durdur':'▶ Başlat'}</button>
-        <button onClick={()=>{setTime(MODES[mode]);setRunning(false);}} className="px-3 py-2 rounded-lg bg-[#253347] text-slate-400 hover:text-white text-sm">↺</button>
-      </div>
-    </div>
-  );
-}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -239,7 +182,16 @@ export default function Dashboard() {
             )}
           </div>
 
-          <Pomodoro />
+          {/* Pomodoro kısayolu */}
+          <div className="card bg-gradient-to-br from-primary/10 to-secondary/5 border-primary/20">
+            <div className="flex items-center gap-3">
+              <div className="text-3xl">🍅</div>
+              <div className="flex-1">
+                <div className="text-sm font-semibold">Pomodoro Sayacı</div>
+                <div className="text-[11px] text-slate-400">Yukarıdaki sayaca tıkla, başlat. Sayfa değişse de çalışır.</div>
+              </div>
+            </div>
+          </div>
 
           {/* Seviye */}
           <div className="card">
