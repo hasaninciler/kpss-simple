@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { CheckCircle, RotateCcw, CreditCard, BookX, Plus, X, Sparkles, Loader, Trash2 } from 'lucide-react';
+import { CheckCircle, RotateCcw, CreditCard, BookX, Plus, X, Sparkles, Loader, Trash2, Camera, Image as ImageIcon } from 'lucide-react';
 
 const LETTERS = ['A','B','C','D','E'];
 const SUBJECTS = ['Coğrafya','Tarih','Matematik','Türkçe','Vatandaşlık','Genel'];
@@ -21,12 +21,49 @@ export default function YanlislarimPage() {
   const [fCorrect, setFCorrect] = useState('');
   const [fSubject, setFSubject] = useState('Genel');
   const [saving, setSaving] = useState(false);
+  const [photoLoading, setPhotoLoading] = useState(false);
 
   const load = () => {
     setLoading(true);
     api.get('/study/wrong').then(r => setWrongs(r.data)).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
+
+  // Fotoğraftan soru yükle
+  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error('Fotoğraf 5MB\'dan küçük olmalı'); return; }
+
+    setPhotoLoading(true);
+    const t = toast.loading('AI fotoğraftaki soruyu okuyor...');
+    try {
+      // Base64'e çevir
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]); // data:image/...;base64, kısmını at
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data } = await api.post('/study/wrong/from-photo', {
+        imageBase64: base64,
+        mimeType: file.type,
+      });
+      toast.success('Soru eklendi! Kendin dene, hazır olunca AI\'ya sor.', { id: t });
+      setShowAdd(false);
+      load();
+      // Otomatik AI çözmüyoruz — kullanıcı kendi denesin, hazır olunca butona bassın
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Fotoğraf okunamadı', { id: t });
+    } finally {
+      setPhotoLoading(false);
+      e.target.value = '';
+    }
+  };
 
   const addManual = async () => {
     if (!fText.trim()) { toast.error('Soru metni yaz'); return; }
@@ -195,10 +232,44 @@ export default function YanlislarimPage() {
           <div className="relative w-full md:max-w-lg bg-[#1E293B] border border-white/[0.08] rounded-t-2xl md:rounded-2xl p-5 max-h-[92vh] overflow-y-auto">
             <div className="md:hidden w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
             <div className="flex items-center justify-between mb-4">
-              <div className="text-base font-bold">📝 Çözemediğin Soruyu Ekle</div>
+              <div className="text-base font-bold">📸 Soru Ekle</div>
               <button onClick={() => setShowAdd(false)} className="text-slate-500 hover:text-white"><X size={18} /></button>
             </div>
-            <p className="text-xs text-slate-500 mb-4">Kitaptan/testten çözemediğin soruyu yaz. Şıkları da girersen AI daha iyi açıklar.</p>
+            <p className="text-xs text-slate-500 mb-4">Kitaptan/testten çözemediğin soruyu fotoğrafla ya da elle yaz. AI okuyup açıklar.</p>
+
+            {/* FOTOĞRAF — kamera + galeri ayrı */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {/* Kamera */}
+              <label className={`cursor-pointer ${photoLoading ? 'opacity-60 pointer-events-none' : ''}`}>
+                <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} className="hidden" />
+                <div className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br from-primary to-secondary text-white hover:opacity-90 transition-opacity h-full justify-center">
+                  {photoLoading ? <Loader size={24} className="animate-spin" /> : <Camera size={24} />}
+                  <div className="text-center">
+                    <div className="text-sm font-bold">Fotoğraf Çek</div>
+                    <div className="text-[10px] opacity-90">Kamerayı aç</div>
+                  </div>
+                </div>
+              </label>
+
+              {/* Galeri */}
+              <label className={`cursor-pointer ${photoLoading ? 'opacity-60 pointer-events-none' : ''}`}>
+                <input type="file" accept="image/*" onChange={handlePhoto} className="hidden" />
+                <div className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-[#253347] border border-white/10 text-white hover:bg-[#2D3F56] transition-colors h-full justify-center">
+                  {photoLoading ? <Loader size={24} className="animate-spin" /> : <ImageIcon size={24} className="text-primary-light" />}
+                  <div className="text-center">
+                    <div className="text-sm font-bold">Galeriden Seç</div>
+                    <div className="text-[10px] text-slate-400">Mevcut fotoğraf</div>
+                  </div>
+                </div>
+              </label>
+            </div>
+            <p className="text-[11px] text-slate-500 text-center mb-4">📸 AI soruyu okur, deftere ekler. Önce sen dene, hazır olunca AI'ya sorarsın.</p>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-[11px] text-slate-600">veya elle yaz</span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
 
             <div className="space-y-3">
               {/* Ders */}

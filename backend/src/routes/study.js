@@ -196,4 +196,69 @@ Türkçe, samimi ve öğretici bir dille açıkla. Çok uzun olmasın, net olsun
   }
 });
 
+// ── FOTOĞRAFTAN SORU OKU (Gemini Vision) ──
+const axios = require('axios');
+
+router.post('/wrong/from-photo', auth, async (req, res) => {
+  const { imageBase64, mimeType } = req.body;
+  if (!imageBase64) return res.status(400).json({ error: 'Fotoğraf gerekli' });
+  if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: 'Gemini API key ayarlanmamış' });
+
+  const prompt = `Bu bir KPSS sınav sorusu fotoğrafı. Fotoğraftaki soruyu OKU ve aşağıdaki JSON formatında çıkar.
+Eğer şıklar varsa (A, B, C, D, E) onları da çıkar.
+Doğru cevabı bilemezsin, boş bırak.
+
+SADECE şu JSON'u döndür, başka hiçbir şey yazma:
+{
+  "question_text": "Sorunun tam metni",
+  "options": ["A) birinci şık", "B) ikinci şık", "C) üçüncü şık", "D) dördüncü şık", "E) beşinci şık"],
+  "subject": "Coğrafya veya Tarih veya Matematik veya Türkçe veya Vatandaşlık veya Genel"
+}
+
+Eğer şık yoksa options'ı boş dizi [] yap.`;
+
+  try {
+    const geminiRes = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        contents: [{
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: mimeType || 'image/jpeg', data: imageBase64 } },
+          ],
+        }],
+      },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
+    );
+
+    const text = geminiRes.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // JSON çıkar
+    let parsed;
+    try {
+      let jsonText = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+      const start = jsonText.indexOf('{');
+      const end = jsonText.lastIndexOf('}');
+      jsonText = jsonText.slice(start, end + 1).replace(/,(\s*[}\]])/g, '$1');
+      parsed = JSON.parse(jsonText);
+    } catch {
+      throw new Error('Fotoğraftaki soru okunamadı, daha net bir fotoğraf dene');
+    }
+
+    if (!parsed.question_text?.trim()) throw new Error('Fotoğrafta soru bulunamadı');
+
+    // Veritabanına kaydet
+    const { rows } = await pool.query(
+      `INSERT INTO wrong_answers (user_id, question_text, options, correct_answer, explanation, user_answer, subject)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [req.user.id, parsed.question_text.trim(), JSON.stringify(parsed.options || []), '', '', '', parsed.subject || 'Genel']
+    );
+
+    res.json(rows[0]);
+  } catch (e) {
+    const msg = e.response?.data?.error?.message || e.message;
+    res.status(500).json({ error: 'Fotoğraf okunamadı: ' + msg });
+  }
+});
+
 module.exports = router;
