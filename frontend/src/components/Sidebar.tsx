@@ -9,7 +9,7 @@ const nav = [
   { href: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/plan',       icon: CalendarDays,     label: 'Günlük Plan' },
   { href: '/video',      icon: Video,            label: 'Video Merkezi' },
-  { href: '/pdf',        icon: FileText,         label: 'Soru Üret' },
+  { href: '/pdf',        icon: FileText,         label: 'AI Soru Üret' },
   { href: '/ai-tutor',   icon: Bot,              label: 'AI Öğretmen' },
   { href: '/quiz',       icon: ClipboardList,    label: 'Quiz' },
   { href: '/konular',    icon: BookOpen,         label: 'Konu Takibi' },

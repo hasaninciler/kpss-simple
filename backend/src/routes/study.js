@@ -130,4 +130,70 @@ router.post('/wrong-to-flashcards', auth, async (req, res) => {
   res.json({ count: rows.length });
 });
 
+// ── Manuel yanlış soru ekle (fiziksel testten) ──
+router.post('/wrong/manual', auth, async (req, res) => {
+  const { question_text, options, correct_answer, subject } = req.body;
+  if (!question_text?.trim()) return res.status(400).json({ error: 'Soru metni gerekli' });
+
+  const { rows } = await pool.query(
+    `INSERT INTO wrong_answers (user_id, question_text, options, correct_answer, explanation, user_answer, subject)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [req.user.id, question_text.trim(), JSON.stringify(options || []), correct_answer || '', '', '', subject || null]
+  );
+  res.json(rows[0]);
+});
+
+// ── AI ile soruyu açıkla ──
+const OpenAIExplain = require('openai');
+const deepseekExplain = new OpenAIExplain({ apiKey: process.env.DEEPSEEK_API_KEY, baseURL: 'https://api.deepseek.com' });
+
+router.post('/wrong/:id/explain', auth, async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM wrong_answers WHERE id=$1 AND user_id=$2',
+    [req.params.id, req.user.id]
+  );
+  if (!rows.length) return res.status(404).json({ error: 'Soru bulunamadı' });
+
+  const w = rows[0];
+  let opts = [];
+  try { opts = typeof w.options === 'string' ? JSON.parse(w.options) : w.options; } catch {}
+
+  const optText = (opts || []).map((o, i) => `${['A','B','C','D','E'][i]}) ${String(o).replace(/^[A-E]\)\s*/, '')}`).join('\n');
+
+  const prompt = `Bir KPSS öğrencisi şu soruyu çözemedi. Sen uzman bir öğretmensin.
+
+SORU: ${w.question_text}
+
+${optText ? `ŞIKLAR:\n${optText}\n` : ''}
+${w.correct_answer ? `DOĞRU CEVAP: ${w.correct_answer}` : ''}
+
+Görevin:
+1. Soruyu adım adım, anlaşılır şekilde açıkla
+2. Doğru cevabın neden doğru olduğunu anlat
+3. Varsa diğer şıkların neden yanlış olduğunu söyle
+4. Bu konuda akılda kalıcı bir ipucu/püf nokta ver
+
+Türkçe, samimi ve öğretici bir dille açıkla. Çok uzun olmasın, net olsun.`;
+
+  try {
+    const resp = await deepseekExplain.chat.completions.create({
+      model: 'deepseek-chat',
+      max_tokens: 1000,
+      messages: [
+        { role: 'system', content: 'Sen sabırlı, anlaşılır anlatan uzman bir KPSS öğretmenisin. Her zaman Türkçe açıklarsın.' },
+        { role: 'user', content: prompt },
+      ],
+    });
+    const explanation = resp.choices[0].message.content;
+
+    // Açıklamayı kaydet
+    await pool.query('UPDATE wrong_answers SET explanation=$1 WHERE id=$2', [explanation, w.id]);
+    await pool.query('UPDATE users SET xp=xp+3 WHERE id=$1', [req.user.id]);
+
+    res.json({ explanation });
+  } catch (e) {
+    res.status(500).json({ error: 'AI açıklayamadı: ' + e.message });
+  }
+});
+
 module.exports = router;
