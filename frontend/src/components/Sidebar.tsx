@@ -26,12 +26,8 @@ function NavContent({ onClose }: { onClose?: () => void }) {
 
   return (
     <>
-      {/* Logo */}
-      <div className="p-4 border-b border-white/[0.08] flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-base">🎯</div>
-          <span className="font-bold text-sm">KPSS <span className="text-primary-light">Master</span></span>
-        </div>
+      {/* Üst boşluk / kapatma */}
+      <div className="p-4 border-b border-white/[0.08] flex items-center justify-end min-h-[57px]">
         {onClose && (
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
             <X size={18} />
@@ -90,11 +86,7 @@ export default function Sidebar() {
       </aside>
 
       {/* Mobile top bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-[#1E293B] border-b border-white/[0.08] flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-sm">🎯</div>
-          <span className="font-bold text-sm">KPSS <span className="text-primary-light">Master</span></span>
-        </div>
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-[#1E293B] border-b border-white/[0.08] flex items-center justify-end px-4 py-3">
         <button onClick={() => setMobileOpen(true)} className="text-slate-400 hover:text-white p-1">
           <Menu size={20} />
         </button>

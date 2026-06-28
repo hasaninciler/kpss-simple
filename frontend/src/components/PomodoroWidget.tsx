@@ -272,7 +272,7 @@ export default function PomodoroWidget() {
                 </div>
 
                 <p className="text-[11px] text-slate-600 text-center mt-4">
-                  ⚙️ ile süre ayarla • Sayfa değişse de çalışır
+                  ⚙️ ile süre ayarla
                 </p>
               </>
             )}

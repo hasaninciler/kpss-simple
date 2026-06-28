@@ -20,7 +20,15 @@ export default function Dashboard() {
     api.get('/planner').then(r => setTodayPlan(r.data)).catch(()=>{});
   }, []);
 
-  const daysLeft = Math.ceil((new Date('2026-07-06').getTime() - Date.now()) / 86400000);
+  // KPSS 2026 sınav tarihleri
+  const EXAMS = [
+    { name: 'Lisans', date: '2026-09-06', label: '6 Eylül 2026' },
+    { name: 'Ortaöğretim', date: '2026-10-04', label: '4 Ekim 2026' },
+    { name: 'Önlisans', date: '2026-10-25', label: '25 Ekim 2026' },
+  ];
+  const daysTo = (d: string) => Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
+  const nextExam = EXAMS.find(e => daysTo(e.date) >= 0) || EXAMS[0];
+  const daysLeft = daysTo(nextExam.date);
   const level = Math.floor((user?.xp || 0) / 500) + 1;
   const levelXp = (user?.xp || 0) % 500;
   const maxMin = Math.max(...weekly.map(w => w.minutes), 60);
@@ -40,14 +48,30 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPSS Countdown */}
+      {/* KPSS Geri Sayım — 3 sınav */}
       <div className="card bg-gradient-to-r from-primary/10 to-secondary/10 border-primary/20">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-sm font-semibold">KPSS 2026 Geri Sayım</div>
-          <div className="text-xl md:text-2xl font-black text-primary-light">{daysLeft} gün</div>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <div className="text-sm font-semibold">KPSS {nextExam.name} Sınavına</div>
+            <div className="text-[11px] text-slate-500">{nextExam.label}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl md:text-3xl font-black text-primary-light">{daysLeft}</div>
+            <div className="text-[10px] text-slate-500">gün kaldı</div>
+          </div>
         </div>
-        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-primary to-secondary rounded-full" style={{width:`${Math.min(100,((365-daysLeft)/365)*100)}%`}}/>
+        <div className="grid grid-cols-3 gap-2">
+          {EXAMS.map(e => {
+            const d = daysTo(e.date);
+            const isNext = e.date === nextExam.date;
+            return (
+              <div key={e.name} className={`rounded-lg p-2 text-center ${isNext ? 'bg-primary/15 border border-primary/30' : 'bg-[#0F172A]'}`}>
+                <div className="text-[10px] text-slate-500">{e.name}</div>
+                <div className={`text-sm font-bold ${isNext ? 'text-primary-light' : 'text-slate-300'}`}>{d >= 0 ? `${d}g` : '—'}</div>
+                <div className="text-[9px] text-slate-600">{e.label.replace(' 2026', '')}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -188,7 +212,7 @@ export default function Dashboard() {
               <div className="text-3xl">🍅</div>
               <div className="flex-1">
                 <div className="text-sm font-semibold">Pomodoro Sayacı</div>
-                <div className="text-[11px] text-slate-400">Yukarıdaki sayaca tıkla, başlat. Sayfa değişse de çalışır.</div>
+                <div className="text-[11px] text-slate-400">Yukarıdaki sayaca tıkla, başlat.</div>
               </div>
             </div>
           </div>
